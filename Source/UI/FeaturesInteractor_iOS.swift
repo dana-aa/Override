@@ -15,6 +15,9 @@ extension FeaturesInteractor { /* UITableViewDelegate */
         presenter.present(tableView, groupAtIndexPath: indexPath)
     }
 
+    /// This is a temp fix for M1+Rosetta where trailing swipe actions don't work.
+    /// This puts all three actions in the leading swipe.
+    /// This will stay in a fork and is not intended to be merged to the main branch.
     @available(iOS 11, *)
     open func tableView(_ tableView: UITableView,
                         leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath
@@ -24,7 +27,7 @@ extension FeaturesInteractor { /* UITableViewDelegate */
             let labeledFeature = presenter.features[indexPath.row] as? LabeledFeatureItemLike
             else { return UISwipeActionsConfiguration.init(actions: []) }
 
-        let action = UIContextualAction(style: .normal,
+        let defaultAction = UIContextualAction(style: .normal,
                                         title: "Default") { [weak self] (_, _, callback: (Bool) -> Void) in
                                             self?.swipeHandler(forFeature: labeledFeature.feature,
                                                                override: .featureDefault,
@@ -33,9 +36,40 @@ extension FeaturesInteractor { /* UITableViewDelegate */
                                                                completion: callback)
         }
 
-        action.backgroundColor = labeledFeature.feature.defaultState ? UIColor.mulah : UIColor.swedishFish
-        return UISwipeActionsConfiguration(actions: [action])
+        let enableAction = UIContextualAction(style: .normal,
+                                              title: "On") { [weak self] (_, _, callback: (Bool) -> Void) in
+                                                self?.swipeHandler(forFeature: labeledFeature.feature,
+                                                                   override: .enabled,
+                                                                   tableView: tableView,
+                                                                   indexPath: indexPath,
+                                                                   completion: callback)
+        }
+
+        let disableAction = UIContextualAction(style: .normal,
+                                               title: "Off") { [weak self] (_, _, callback: (Bool) -> Void) in
+                                                self?.swipeHandler(forFeature: labeledFeature.feature,
+                                                                   override: .disabled,
+                                                                   tableView: tableView,
+                                                                   indexPath: indexPath,
+                                                                   completion: callback)
+        }
+        
+        defaultAction.backgroundColor = labeledFeature.feature.defaultState ? UIColor.mulah : UIColor.swedishFish
+        enableAction.backgroundColor = UIColor.mulah
+        disableAction.backgroundColor = UIColor.swedishFish
+
+        var actions: [UIContextualAction]
+        switch labeledFeature.feature.override {
+        case .enabled:
+            actions = [disableAction, defaultAction]
+        case .disabled:
+            actions = [enableAction, defaultAction]
+        case .featureDefault:
+            actions = [enableAction, disableAction]
+        }
+        return UISwipeActionsConfiguration(actions: actions)
     }
+
 
     @available(iOS 11, *)
     open func tableView(_ tableView: UITableView,
